@@ -1,0 +1,97 @@
+# ArgoCD v7.x (chart argo/argo-cd) — compatible K3s 1.30
+
+global:
+  logging:
+    level: info
+    format: json
+
+# ── Serveur ArgoCD ────────────────────────────────────────────
+server:
+  replicas: 1
+
+  # Désactiver TLS interne (Traefik gère le TLS)
+  extraArgs:
+    - --insecure
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Ingress pour accéder à l'UI via navigateur
+  ingress:
+    enabled: true
+    ingressClassName: "traefik"
+    annotations:
+      traefik.ingress.kubernetes.io/router.entrypoints: "websecure"
+      traefik.ingress.kubernetes.io/router.tls: "true"
+
+# ── Dépôt GitHub FastAPI_k8s ────────────────────────────────
+configs:
+  repositories:
+    fastapi-k8s:
+      url: https://github.com/Maclorenzy/FastAPI_k8s
+      name: FastAPI_k8s
+      type: git
+      # Repo public : pas de credentials nécessaires
+      # Si repo privé, ajouter :
+      # password: ghp_VOTRE_PERSONAL_ACCESS_TOKEN
+      # username: Maclorenzy
+
+  # Paramètres RBAC (droits dans ArgoCD)
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, clusters, get, *, allow
+      p, role:admin, repositories, *, *, allow
+      g, admin, role:admin
+
+  # Activer l'auto-sync par défaut
+  cm:
+    application.resourceTrackingMethod: annotation
+    timeout.reconciliation: 180s   # Vérifier Git toutes les 3 minutes
+
+# ── Répo server ───────────────────────────────────────────────
+repoServer:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ── ApplicationSet controller ─────────────────────────────────
+applicationSet:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+# ── Notifications ─────────────────────────────────────────────
+notifications:
+  enabled: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+
+# ── Redis (cache ArgoCD) ──────────────────────────────────────
+redis:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# ── Désactiver SSO (Dex) — pas nécessaire pour commencer ──────
+dex:
+  enabled: false

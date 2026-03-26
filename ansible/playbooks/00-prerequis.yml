@@ -1,0 +1,40 @@
+# Vérifications et prérequis avant installation
+- name: Vérification prérequis Ubuntu 24.04
+  hosts: vm
+  become: false
+
+  tasks:
+    - name: Vérifier la version Ubuntu
+      command: lsb_release -rs
+      register: ubuntu_version
+      failed_when: ubuntu_version.stdout != "24.04"
+
+    - name: Confirmer Ubuntu 24.04
+      debug:
+        msg: "✅ Ubuntu {{ ubuntu_version.stdout }} — OK"
+
+    - name: Vérifier que K3s est installé
+      command: kubectl get nodes
+      register: k3s_status
+      environment:
+        KUBECONFIG: /home/freebox/.kube/config
+
+    - name: Statut K3s
+      debug:
+        msg: "{{ k3s_status.stdout }}"
+
+    - name: Vérifier que Helm est installé
+      command: helm version --short
+      register: helm_version
+
+    - name: Version Helm
+      debug:
+        msg: "✅ Helm {{ helm_version.stdout }}"
+
+    - name: Vérifier que les repos Helm sont configurés
+      command: helm repo list
+      register: helm_repos
+
+    - name: Repos Helm
+      debug:
+        msg: "{{ helm_repos.stdout }}"

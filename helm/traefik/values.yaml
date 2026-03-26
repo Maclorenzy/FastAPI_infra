@@ -1,0 +1,98 @@
+# Traefik v3.1+ (chart version 32.x compatible K3s 1.30)
+
+# ── Déploiement ────────────────────────────────────────────────
+deployment:
+  replicas: 1
+  kind: Deployment
+
+# ── Image Traefik ─────────────────────────────────────────────
+image:
+  tag: "v3.1.6"                    # Version fixée pour reproductibilité
+
+# ── Entrées réseau (entryPoints) ──────────────────────────────
+ports:
+  # Port 80 : HTTP avec redirection automatique vers HTTPS
+  web:
+    port: 8000
+    expose:
+      default: true
+    exposedPort: 80
+    protocol: TCP
+    redirectTo:
+      port: websecure
+      scheme: https
+      permanent: true              # Code 301 (permanent)
+
+  # Port 443 : HTTPS
+  websecure:
+    port: 8443
+    expose:
+      default: true
+    exposedPort: 443
+    protocol: TCP
+    tls:
+      enabled: true
+
+# ── Service LoadBalancer (MetalLB lui assignera 192.168.1.37) ─
+service:
+  enabled: true
+  type: LoadBalancer
+  spec:
+    loadBalancerIP: "192.168.1.37"
+
+# ── Providers ─────────────────────────────────────────────────
+providers:
+  kubernetesCRD:
+    enabled: true                  # IngressRoute (ressource Traefik native)
+    allowCrossNamespace: true      # Permet les middlewares cross-namespace
+    allowExternalNameServices: true
+  kubernetesIngress:
+    enabled: true                  # Ingress standard K8s
+    publishedService:
+      enabled: true
+
+# ── Logs ──────────────────────────────────────────────────────
+logs:
+  general:
+    level: INFO
+    format: json                   # Format structuré pour Loki
+  access:
+    enabled: true
+    format: json
+    fields:
+      defaultMode: keep
+
+# ── Dashboard (désactivé en prod, activer pour debug) ─────────
+ingressRoute:
+  dashboard:
+    enabled: false
+
+# ── Ressources CPU/RAM ────────────────────────────────────────
+resources:
+  requests:
+    cpu: "100m"
+    memory: "50Mi"
+  limits:
+    cpu: "300m"
+    memory: "150Mi"
+
+# ── RBAC ──────────────────────────────────────────────────────
+rbac:
+  enabled: true
+
+# ── Tolérations nœud master ───────────────────────────────────
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+# ── Priorité de scheduling ────────────────────────────────────
+priorityClassName: "system-cluster-critical"
+
+# ── Métriques Prometheus ──────────────────────────────────────
+metrics:
+  prometheus:
+    enabled: true
+    entryPoint: metrics
+    addEntryPointsLabels: true
+    addServicesLabels: true

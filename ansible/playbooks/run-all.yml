@@ -1,0 +1,7 @@
+# Playbook maître : exécution dans l'ordre
+- import_playbook: 00-prerequis.yml
+- import_playbook: 01-install-metallb.yml
+- import_playbook: 02-install-traefik.yml
+- import_playbook: 03-install-certmanager.yml
+- import_playbook: 04-install-argocd.yml
+- import_playbook: 05-install-monitoring.yml

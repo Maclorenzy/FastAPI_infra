@@ -1,0 +1,52 @@
+- name: Installer cert-manager v1.15
+  hosts: vm
+  become: false
+  environment:
+    KUBECONFIG: /home/freebox/.kube/config
+
+  vars:
+    certmanager_chart_version: "v1.15.3"
+
+  tasks:
+    - name: Créer le namespace cert-manager
+      command: kubectl create namespace cert-manager
+      ignore_errors: true
+
+    - name: Installer cert-manager via Helm
+      command: >
+        helm upgrade --install cert-manager jetstack/cert-manager
+        --namespace cert-manager
+        --version {{ certmanager_chart_version }}
+        --values /home/freebox/FastAPI_infra/helm/certmanager/values.yaml
+        --wait
+        --timeout 5m
+
+    - name: Attendre que cert-manager soit Ready
+      command: kubectl rollout status deployment/cert-manager -n cert-manager --timeout=3m
+      retries: 5
+      delay: 20
+
+    - name: Attendre que le webhook soit prêt (critique)
+      pause:
+        seconds: 30
+        prompt: "Attente webhook cert-manager (important)..."
+
+    - name: Appliquer les ClusterIssuers Let's Encrypt
+      command: >
+        kubectl apply -f /home/freebox/FastAPI_infra/helm/certmanager/clusterissuer.yaml
+
+    - name: Vérifier les ClusterIssuers
+      command: kubectl get clusterissuer
+      register: issuers
+
+    - debug:
+        msg: "{{ issuers.stdout }}"
+
+    - name: Vérifier que les ClusterIssuers sont Ready
+      shell: |
+        kubectl get clusterissuer letsencrypt-prod \
+          -o jsonpath='{.status.conditions[0].status}'
+      register: issuer_status
+
+    - debug:
+        msg: "ClusterIssuer letsencrypt-prod Ready : {{ issuer_status.stdout }}"

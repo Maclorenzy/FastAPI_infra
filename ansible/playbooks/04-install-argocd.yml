@@ -1,0 +1,58 @@
+- name: Installer ArgoCD v7
+  hosts: vm
+  become: false
+  environment:
+    KUBECONFIG: /home/freebox/.kube/config
+
+  vars:
+    argocd_chart_version: "7.6.12"
+
+  tasks:
+    - name: Créer le namespace argocd
+      command: kubectl create namespace argocd
+      ignore_errors: true
+
+    - name: Installer ArgoCD via Helm
+      command: >
+        helm upgrade --install argocd argo/argo-cd
+        --namespace argocd
+        --version {{ argocd_chart_version }}
+        --values /home/freebox/FastAPI_infra/helm/argocd/values.yaml
+        --wait
+        --timeout 10m
+
+    - name: Attendre que le serveur ArgoCD soit prêt
+      command: kubectl rollout status deployment/argocd-server -n argocd --timeout=5m
+      retries: 10
+      delay: 20
+
+    - name: Récupérer le mot de passe admin initial
+      shell: >
+        kubectl -n argocd get secret argocd-initial-admin-secret
+        -o jsonpath="{.data.password}" | base64 -d
+      register: argocd_password
+
+    - name: Afficher le mot de passe ArgoCD
+      debug:
+        msg: |
+          ═══════════════════════════════════════════════════════
+          🔑 ArgoCD UI Password (admin) : {{ argocd_password.stdout }}
+          ═══════════════════════════════════════════════════════
+          Pour accéder à l'UI :
+          kubectl port-forward svc/argocd-server -n argocd 8080:443
+          Puis ouvrir : https://localhost:8080
+          ═══════════════════════════════════════════════════════
+
+    - name: Installer argocd CLI
+      become: true
+      shell: |
+        ARGOCD_VERSION=$(curl -s https://api.github.com/repos/argoproj/argo-cd/releases/latest \
+          | grep tag_name | cut -d '"' -f4)
+        curl -sSL -o /usr/local/bin/argocd \
+          "https://github.com/argoproj/argo-cd/releases/download/${ARGOCD_VERSION}/argocd-linux-amd64"
+        chmod +x /usr/local/bin/argocd
+        echo "✅ argocd CLI $(argocd version --client --short)"
+      register: argocd_cli_result
+
+    - debug:
+        msg: "{{ argocd_cli_result.stdout }}"

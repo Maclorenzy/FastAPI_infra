@@ -1,0 +1,53 @@
+- name: Installer MetalLB v0.14
+  hosts: vm
+  become: false
+  environment:
+    KUBECONFIG: /home/freebox/.kube/config
+
+  vars:
+    metallb_chart_version: "0.14.8"    # Version stable avec K3s 1.30
+
+  tasks:
+    - name: Mettre à jour les repos Helm
+      command: helm repo update
+
+    - name: Créer le namespace metallb-system
+      command: kubectl create namespace metallb-system
+      ignore_errors: true
+
+    - name: Installer MetalLB via Helm
+      command: >
+        helm upgrade --install metallb metallb/metallb
+        --namespace metallb-system
+        --version {{ metallb_chart_version }}
+        --wait
+        --timeout 5m
+
+    - name: Attendre que les pods MetalLB soient prêts
+      command: kubectl rollout status deployment/metallb-controller -n metallb-system --timeout=3m
+      retries: 5
+      delay: 30
+
+    - name: Pause pour que les CRDs MetalLB soient enregistrés
+      pause:
+        seconds: 15
+        prompt: "Attente enregistrement CRDs MetalLB..."
+
+    - name: Appliquer la configuration IPAddressPool
+      command: >
+        kubectl apply -f /home/freebox/FastAPI_infra/helm/metallb/ipaddresspool.yaml
+
+    - name: Vérifier les pods MetalLB
+      command: kubectl get pods -n metallb-system
+      register: metallb_pods
+
+    - name: Résultat MetalLB
+      debug:
+        msg: "{{ metallb_pods.stdout }}"
+
+    - name: Vérifier IPAddressPool
+      command: kubectl get ipaddresspool -n metallb-system
+      register: ip_pool
+
+    - debug:
+        msg: "{{ ip_pool.stdout }}"

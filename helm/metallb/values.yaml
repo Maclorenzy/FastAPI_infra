@@ -1,0 +1,3 @@
+# MetalLB v0.14+ (compatible K3s v1.30 + Ubuntu 24.04)
+# Pas de valeurs custom nécessaires dans le chart
+# La config se fait via IPAddressPool après installation

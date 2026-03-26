@@ -1,0 +1,72 @@
+# kube-prometheus-stack v62+ (compatible Ubuntu 24.04 + K3s 1.30)
+
+# ── Prometheus ────────────────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    retentionSize: "3GB"
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+    # Scrape toutes les 30s
+    scrapeInterval: "30s"
+    evaluationInterval: "30s"
+    # Règles de scrape pour nos namespaces
+    podMonitorNamespaceSelector: {}
+    podMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelector: {}
+
+# ── Grafana ───────────────────────────────────────────────────
+grafana:
+  enabled: true
+  replicas: 1
+  adminPassword: "GrafanaAdmin123!"    # ← Changer !
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  # Datasource Loki (logs) pré-configurée
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      url: http://loki:3100
+      access: proxy
+      isDefault: false
+
+# ── Alertmanager ──────────────────────────────────────────────
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    replicas: 1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+
+# ── Désactiver ce qui ne marche pas sur K3s single-node ───────
+# (ces composants ne sont pas accessibles sur K3s)
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+# Garder ces composants (compatibles K3s)
+kubelet:
+  enabled: true
+kubeApiServer:
+  enabled: true
+nodeExporter:
+  enabled: true

@@ -1,0 +1,48 @@
+- name: Installer Traefik v3.1
+  hosts: vm
+  become: false
+  environment:
+    KUBECONFIG: /home/freebox/.kube/config
+
+  vars:
+    traefik_chart_version: "32.1.1"    # Chart Traefik v3 stable
+
+  tasks:
+    - name: Créer le namespace traefik
+      command: kubectl create namespace traefik
+      ignore_errors: true
+
+    - name: Installer Traefik via Helm
+      command: >
+        helm upgrade --install traefik traefik/traefik
+        --namespace traefik
+        --version {{ traefik_chart_version }}
+        --values /home/freebox/FastAPI_infra/helm/traefik/values.yaml
+        --wait
+        --timeout 5m
+
+    - name: Vérifier les pods Traefik
+      command: kubectl get pods -n traefik
+      register: traefik_pods
+
+    - debug:
+        msg: "{{ traefik_pods.stdout }}"
+
+    - name: Attendre que MetalLB assigne l'IP à Traefik
+      shell: |
+        for i in $(seq 1 30); do
+          IP=$(kubectl get svc traefik -n traefik \
+            -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+          if [ "$IP" = "192.168.1.37" ]; then
+            echo "✅ IP Traefik assignée : $IP"
+            exit 0
+          fi
+          echo "Attente... ($i/30) IP actuelle : '$IP'"
+          sleep 10
+        done
+        echo "❌ Timeout : IP non assignée"
+        exit 1
+      register: traefik_ip_result
+
+    - debug:
+        msg: "{{ traefik_ip_result.stdout }}"

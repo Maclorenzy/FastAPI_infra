@@ -1,0 +1,51 @@
+# cert-manager v1.15+ (compatible Ubuntu 24.04 + K3s 1.30)
+
+# Installer les CRDs automatiquement (obligatoire première installation)
+crds:
+  enabled: true
+
+# 1 replica suffisant pour VM unique
+replicaCount: 1
+
+# Ressources pour VM
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# Composant webhook
+webhook:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+# Composant cainjector
+cainjector:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Logs JSON pour Loki
+global:
+  logLevel: info
+  logFormat: json
+
+# Métriques Prometheus
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false                 # Activer si vous avez le CRD ServiceMonitor
